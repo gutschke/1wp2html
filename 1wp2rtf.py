@@ -17,10 +17,12 @@
 # the Free Software Foundation, Inc., 59 Temple Place, Suite 330,
 # Boston, MA 02111-1307 USA
 
-import os, sys, string
+import string
+import sys
+
 
 class Converter:
-    "Converts 1wp to a plain text file."
+    """Converts 1wp to a plain text file."""
 
     def __init__(self, infile, outfile):
         self.infile = infile
@@ -53,8 +55,8 @@ class Converter:
         self.outfile.write(char)
 
     def w_textstyle(self, bold, light, italic, underline,
-                  superscript, subscript):
-        "change the character text style"
+                    superscript, subscript):
+        """change the character text style"""
         pass
 
     def w_backspace(self):
@@ -69,21 +71,21 @@ class Converter:
         pass
 
     def w_pagebreak_cond(self, lines):
-        "conditional page break"
+        """conditional page break"""
         pass
 
     def w_pagebreak_uncond(self):
-        "unconditional page break"
+        """unconditional page break"""
         pass
 
     def w_return(self):
         self.outfile.write("\n")
 
     def w_footnoteref(self, n):
-        self.outfile.write("[" + `n` + "]")
+        self.outfile.write("[" + str(n) + "]")
 
     def w_hyphen(self):
-        "soft hyphen"
+        """soft hyphen"""
         pass
 
     # As far as I can tell, 1stWord+ files use three kinds of spaces:
@@ -94,41 +96,41 @@ class Converter:
     # which is treated here in the same way as a 30.
 
     def w_indent(self):
-        outfile.write(" ")
+        self.outfile.write(" ")
         pass
 
     def w_indent_more(self):
-        outfile.write(" ")
+        self.outfile.write(" ")
         pass
 
     def w_space(self):
-        outfile.write(" ")
+        self.outfile.write(" ")
         pass
 
     def w_delete(self):
         pass
 
     def finish(self):
-        "Called when the end of a file is reached."
+        """Called when the end of a file is reached."""
         pass
 
     def getchar(self):
-        "get the next character from the input file"
+        """get the next character from the input file"""
         c = self.infile.read(1)
-        if (c == ""):
+        if c == "":
             self.this_char = -1
             return -1
         self.prev_char = self.this_char
         self.this_char = ord(c)
-        
-        if (self.this_char == self.prev_char):
+
+        if self.this_char == self.prev_char:
             self.run_length += 1
         else:
             self.run_length = 0
         return self.this_char
 
     def footnoteref(self):
-        infile.read(2)  # skip meaningless x and y values
+        self.infile.read(2)  # skip meaningless x and y values
         n = self.getchar()
         self.w_footnoteref(n)
 
@@ -142,49 +144,51 @@ class Converter:
         indicating a change in the character style. In any other case
         we chomp bytes till we hit a 0, indicating the end of the
         escape sequence."""
-        
+
         c = self.getchar()
-        if (c & 0xc0 == 0x80):
+        if c & 0xc0 == 0x80:
             # c is a bitfield indicating styles we want active
             self.w_textstyle(c & 0x01 > 0, c & 0x02 > 0,
                              c & 0x04 > 0, c & 0x08 > 0,
                              c & 0x10 > 0, c & 0x20 > 0)
-        if (c == 0xc0):
+        if c == 0xc0:
             # literal escape sequence -- skip it
             this = self.getchar()
-            while (1):
+            while True:
                 prev = this
                 this = self.getchar()
-                if (prev == 27 and this == 0): break
+                if prev == 27 and this == 0:
+                    break
 
         # anything else ignored
 
     def start_format_seq(self):
         """A format sequence begins with a 31 and ends with a 10. We
         ignore it completely."""
-        while (self.getchar() != 10):
+        while self.getchar() != 10:
             pass
 
     def convert(self):
-        "Performs the actual conversion."
+        """Performs the actual conversion."""
         skip = 0
         # skip denotes whether to skip the next read and just use
         # what's in this_char (if a function has read ahead, say)
         while 1:
-            if (not skip):
+            if not skip:
                 self.getchar()
             if self.dispatch_table.has_key(self.this_char):
                 skip = self.dispatch_table[self.this_char]()
             else:
                 skip = self.w_char(chr(self.this_char))
-            if (self.this_char == -1): break
+            if self.this_char == -1:
+                break
         pass
 
 
 class RtfConverter(Converter):
 
     header = (
-        r"{\rtf1\ansi\ansicpg1252\deff0" # Codepage 1252 is almost Latin-1
+        r"{\rtf1\ansi\ansicpg1252\deff0"  # Codepage 1252 is almost Latin-1
         r"{\fonttbl"
         r"{\f0\froman\fcharset0\fprq0\cpg1252 Times New Roman}}"
         # We only want one font.
@@ -205,10 +209,11 @@ class RtfConverter(Converter):
     def w_linefeed(self):
         """We write single linefeeds (for human readability of the
         RTF) and take multiple ones to indicate a new paragraph."""
-        if (self.run_length == 0):
-            if (self.prev_char != 30): self.outfile.write(" ")
+        if self.run_length == 0:
+            if self.prev_char != 30:
+                self.outfile.write(" ")
             self.outfile.write("\n")
-        if ((self.run_length < 2 and self.emptyline)):
+        if self.run_length < 2 and self.emptyline:
             self.outfile.write("\n\\par")
             # Write the \par here since we don't want a \par at the start
             # of the document.
@@ -216,11 +221,11 @@ class RtfConverter(Converter):
         self.emptyline = 1
 
     def check_new_par(self):
-        if (self.new_para):
+        if self.new_para:
             self.outfile.write("\\s0")
             self.curr_para_style = "normal"
             self.new_para = 0
-        
+
     def w_char(self, char):
         """Could be the first non-space character after a multiple
         linefeed -- in this case start a new paragraph."""
@@ -235,29 +240,32 @@ class RtfConverter(Converter):
         while 1:
             # count the 28s to measure indentation
             c = self.getchar()
-            if (c != 28): break
+            if c != 28:
+                break
             indents += 1
         # If the sequence is terminated by a 10, it's an empty line so
         # we ignore it.
-        if (c != 10 and self.curr_para_style != "indent"):
+        if c != 10 and self.curr_para_style != "indent":
             self.curr_para_style = "indent"
             self.outfile.write("\\s1 ")
             self.new_para = 0
-        if (c == 10): return 0
-        else: return 1
+        if c == 10:
+            return 0
+        else:
+            return 1
 
     def w_textstyle(self, bold, light, italic, underline,
-                  superscript, subscript):
+                    superscript, subscript):
         changed = 0
-        newstyle = {"b" : bold, "i" : italic, "ul" : underline,
-                    "sub" : subscript, "super" : superscript}
+        newstyle = {"b": bold, "i": italic, "ul": underline,
+                    "sub": subscript, "super": superscript}
         for style in newstyle.keys():
-            if (newstyle[style] != self.stylestate[style]):
+            if newstyle[style] != self.stylestate[style]:
                 changed = 1
                 self.outfile.write("\\" + style)
-                if (newstyle[style] == 0):
+                if newstyle[style] == 0:
                     self.outfile.write("0")
-        if (changed):
+        if changed:
             self.outfile.write(" ")
             self.check_new_par()
             self.stylestate = newstyle
@@ -268,7 +276,7 @@ class RtfConverter(Converter):
     def w_space(self):
         # swallow leading and repeated spaces
         if ((not self.emptyline) and
-            self.prev_char not in [0, 10, 27, 28, 29, 30, 32]):
+                self.prev_char not in [0, 10, 27, 28, 29, 30, 32]):
             self.outfile.write(" ")
 
     def __init__(self, infile, outfile):
@@ -278,54 +286,49 @@ class RtfConverter(Converter):
         # If Python had enums, curr_para_style would be one. 
         self.new_para = 1
         self.emptyline = 1
-        self.stylestate = {"b" : 0, "i" : 0,
-                           "ul" : 0, "sub" : 0, "super" : 0}
+        self.stylestate = {"b": 0, "i": 0, "ul": 0, "sub": 0, "super": 0}
 
 
-####### Main program starts here. #######################################
+def main():
+    usage = "Usage: 1wp2rtf ( [-f | --force] <infile> <outfile> | [ -h | --help ] )"
+    if (len(sys.argv) == 2 and (sys.argv[1] in ["-h", "--help"])):
+        print "1wp2rtf v1.0 (2003-10-20) (c) Pont Lurcock\n" \
+              "1wp2rtf converts Acorn 1stWord+ files to RTF files.\n" \
+              "1wp2rtf is released under the GNU General Public License, version 3."
+        print usage
+        print "-h | --help   displays this help text\n" \
+              "-f | --force  attempts a conversion even if <infile> doesn't look\n" \
+              "              like a 1stWord+ file"
+        sys.exit(0)
+    force = 0
+    if (len(sys.argv) == 4 and sys.argv[1] in ["-f", "--force"]):
+        sys.argv.remove(sys.argv[1])
+        force = 1
+    if (len(sys.argv) == 3):
 
+        infile = file(sys.argv[1], "r")
+        firstline = infile.readline()
+        if (firstline != "\x1f06601030305800\n"):
+            if force:
+                print sys.argv[1], "doesn't look like 1wp, but", \
+                    "attempting conversion anyway by your command."
+            else:
+                print >> sys.stderr, sys.argv[1], \
+                    "doesn't look like a 1wp file to me, so", \
+                    "I'm ignoring it. (Use --force to override.)"
+                sys.exit(1)
+        infile.close()
 
-usage = "Usage: 1wp2rtf ( [-f | --force] <infile> <outfile> | [ -h | --help ] )"
-
-if (len(sys.argv) == 2 and (sys.argv[1] in ["-h", "--help"])):
-    print "1wp2rtf v1.0 (2003-10-20) (c) Pont Lurcock\n" \
-          "1wp2rtf converts Acorn 1stWord+ files to RTF files.\n" \
-          "1wp2rtf is released under the GNU General Public License, version 3."
+        infile = file(sys.argv[1], "rb")
+        outfile = file(sys.argv[2], "wb")
+        con = RtfConverter(infile, outfile)
+        con.convert()
+        infile.close()
+        outfile.close()
+        sys.exit(0)
+    print "Sorry, I don't understand \"", string.join(sys.argv[1:]), "\"."
     print usage
-    print "-h | --help   displays this help text\n" \
-          "-f | --force  attempts a conversion even if <infile> doesn't look\n"\
-          "              like a 1stWord+ file"
-    sys.exit(0)
+    sys.exit(1)
 
-force = 0
 
-if (len(sys.argv) == 4 and sys.argv[1] in ["-f", "--force"]):
-    sys.argv.remove(sys.argv[1])
-    force = 1
-
-if (len(sys.argv) == 3):
-
-    infile = file(sys.argv[1], "r")
-    firstline = infile.readline()
-    if (firstline != "\x1f06601030305800\n"):
-        if force:
-            print sys.argv[1], "doesn't look like 1wp, but", \
-                  "attempting conversion anyway by your command."
-        else:
-            print >> sys.stderr, sys.argv[1], \
-                  "doesn't look like a 1wp file to me, so", \
-                  "I'm ignoring it. (Use --force to override.)"
-            sys.exit(1)
-    infile.close()
-
-    infile = file(sys.argv[1], "rb")
-    outfile = file(sys.argv[2], "wb")
-    con = RtfConverter(infile, outfile)
-    con.convert()
-    infile.close()
-    outfile.close()
-    sys.exit(0)
-
-print "Sorry, I don't understand \"", string.join(sys.argv[1:]), "\"."
-print usage
-sys.exit(1)
+main()
