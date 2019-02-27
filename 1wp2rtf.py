@@ -1,9 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # 1wp2rtf : Converts Acorn 1stWord+ files to RTF.
-# Copyright 2003, 2016 Pont Lurcock, email pont talvi net
-#                                              @     .
-# version 1.0
+# Copyright 2003, 2016, 2019 Pont Lurcock, email pont@talvi.net
+#
+# version 1.1
 #
 # Handles normal text, block indentation, bold, underline, italic,
 # superscript, and subscript. Tweaked to handle the files I needed to
@@ -117,7 +117,7 @@ class Converter:
     def getchar(self):
         """get the next character from the input file"""
         c = self.infile.read(1)
-        if c == "":
+        if c == b"":
             self.this_char = -1
             return -1
         self.prev_char = self.this_char
@@ -176,7 +176,7 @@ class Converter:
         while 1:
             if not skip:
                 self.getchar()
-            if self.dispatch_table.has_key(self.this_char):
+            if self.this_char in self.dispatch_table:
                 skip = self.dispatch_table[self.this_char]()
             else:
                 skip = self.w_char(chr(self.this_char))
@@ -259,7 +259,7 @@ class RtfConverter(Converter):
         changed = 0
         newstyle = {"b": bold, "i": italic, "ul": underline,
                     "sub": subscript, "super": superscript}
-        for style in newstyle.keys():
+        for style in list(newstyle.keys()):
             if newstyle[style] != self.stylestate[style]:
                 changed = 1
                 self.outfile.write("\\" + style)
@@ -292,13 +292,13 @@ class RtfConverter(Converter):
 def main():
     usage = "Usage: 1wp2rtf ( [-f | --force] <infile> <outfile> | [ -h | --help ] )"
     if (len(sys.argv) == 2 and (sys.argv[1] in ["-h", "--help"])):
-        print "1wp2rtf v1.0 (2003-10-20) (c) Pont Lurcock\n" \
+        print("1wp2rtf v1.0 (2003-10-20) (c) Pont Lurcock\n" \
               "1wp2rtf converts Acorn 1stWord+ files to RTF files.\n" \
-              "1wp2rtf is released under the GNU General Public License, version 3."
-        print usage
-        print "-h | --help   displays this help text\n" \
+              "1wp2rtf is released under the GNU General Public License, version 3.")
+        print(usage)
+        print("-h | --help   displays this help text\n" \
               "-f | --force  attempts a conversion even if <infile> doesn't look\n" \
-              "              like a 1stWord+ file"
+              "              like a 1stWord+ file")
         sys.exit(0)
     force = 0
     if (len(sys.argv) == 4 and sys.argv[1] in ["-f", "--force"]):
@@ -306,28 +306,28 @@ def main():
         force = 1
     if (len(sys.argv) == 3):
 
-        infile = file(sys.argv[1], "r")
+        infile = open(sys.argv[1], "r", encoding="latin-1")
         firstline = infile.readline()
         if (firstline != "\x1f06601030305800\n"):
             if force:
-                print sys.argv[1], "doesn't look like 1wp, but", \
-                    "attempting conversion anyway by your command."
+                print(sys.argv[1], "doesn't look like 1wp, but", \
+                    "attempting conversion anyway by your command.")
             else:
-                print >> sys.stderr, sys.argv[1], \
+                print(sys.argv[1], \
                     "doesn't look like a 1wp file to me, so", \
-                    "I'm ignoring it. (Use --force to override.)"
+                    "I'm ignoring it. (Use --force to override.)", file=sys.stderr)
                 sys.exit(1)
         infile.close()
 
-        infile = file(sys.argv[1], "rb")
-        outfile = file(sys.argv[2], "wb")
+        infile = open(sys.argv[1], "rb")
+        outfile = open(sys.argv[2], "w")
         con = RtfConverter(infile, outfile)
         con.convert()
         infile.close()
         outfile.close()
         sys.exit(0)
-    print "Sorry, I don't understand \"", string.join(sys.argv[1:]), "\"."
-    print usage
+    print("Sorry, I don't understand \"", string.join(sys.argv[1:]), "\".")
+    print(usage)
     sys.exit(1)
 
 
