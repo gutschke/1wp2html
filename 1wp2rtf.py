@@ -19,6 +19,7 @@
 
 import string
 import sys
+import argparse
 
 
 class Converter:
@@ -290,45 +291,38 @@ class RtfConverter(Converter):
 
 
 def main():
-    usage = "Usage: 1wp2rtf ( [-f | --force] <infile> <outfile> | [ -h | --help ] )"
-    if (len(sys.argv) == 2 and (sys.argv[1] in ["-h", "--help"])):
-        print("1wp2rtf v1.0 (2003-10-20) (c) Pont Lurcock\n" \
-              "1wp2rtf converts Acorn 1stWord+ files to RTF files.\n" \
-              "1wp2rtf is released under the GNU General Public License, version 3.")
-        print(usage)
-        print("-h | --help   displays this help text\n" \
-              "-f | --force  attempts a conversion even if <infile> doesn't look\n" \
-              "              like a 1stWord+ file")
-        sys.exit(0)
-    force = 0
-    if (len(sys.argv) == 4 and sys.argv[1] in ["-f", "--force"]):
-        sys.argv.remove(sys.argv[1])
-        force = 1
-    if (len(sys.argv) == 3):
+    parser = argparse.ArgumentParser(
+        description="Convert Acorn 1stWord+ files to RTF files."
+    )
 
-        infile = open(sys.argv[1], "r", encoding="latin-1")
+    parser.add_argument("-f", "--force", action="store_true",
+                        help="attempt conversion even if input file doesn't "
+                             "appear to be in 1stWord+ format")
+    parser.add_argument("input", help="1stWord+ input file")
+    parser.add_argument("output", help="RTF output file")
+    args = parser.parse_args()
+
+    with open(args.input, "r", encoding="latin-1") as infile:
         firstline = infile.readline()
-        if (firstline != "\x1f06601030305800\n"):
-            if force:
-                print(sys.argv[1], "doesn't look like 1wp, but", \
-                    "attempting conversion anyway by your command.")
-            else:
-                print(sys.argv[1], \
-                    "doesn't look like a 1wp file to me, so", \
-                    "I'm ignoring it. (Use --force to override.)", file=sys.stderr)
-                sys.exit(1)
-        infile.close()
 
-        infile = open(sys.argv[1], "rb")
-        outfile = open(sys.argv[2], "w")
-        con = RtfConverter(infile, outfile)
-        con.convert()
-        infile.close()
-        outfile.close()
-        sys.exit(0)
-    print("Sorry, I don't understand \"", string.join(sys.argv[1:]), "\".")
-    print(usage)
-    sys.exit(1)
+    if firstline in ["\x1f06601030305800\n"]:
+        convert(args.input, args.output)
+    else:
+        if args.force:
+            print("{} doesn't look like a 1stWord+ file.\nConverting anyway "
+                  "since --force was specified.".format(args.input))
+            convert(args.input, args.output)
+        else:
+            print("Skipping {} since it doesn't look like a 1stWord+ file.\n"
+                  "(Use --force to override.)".format(args.input))
 
 
-main()
+def convert(input_filename, output_filename):
+    with open(input_filename, "rb") as infile, \
+         open(output_filename, "w") as outfile:
+        converter = RtfConverter(infile, outfile)
+        converter.convert()
+
+
+if __name__ == "__main__":
+    main()
