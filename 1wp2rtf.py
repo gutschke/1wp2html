@@ -17,8 +17,6 @@
 # the Free Software Foundation, Inc., 59 Temple Place, Suite 330,
 # Boston, MA 02111-1307 USA
 
-import string
-import sys
 import argparse
 
 
@@ -98,15 +96,12 @@ class Converter:
 
     def w_indent(self):
         self.outfile.write(" ")
-        pass
 
     def w_indent_more(self):
         self.outfile.write(" ")
-        pass
 
     def w_space(self):
         self.outfile.write(" ")
-        pass
 
     def w_delete(self):
         pass
@@ -174,7 +169,7 @@ class Converter:
         skip = 0
         # skip denotes whether to skip the next read and just use
         # what's in this_char (if a function has read ahead, say)
-        while 1:
+        while True:
             if not skip:
                 self.getchar()
             if self.this_char in self.dispatch_table:
@@ -183,7 +178,6 @@ class Converter:
                 skip = self.w_char(chr(self.this_char))
             if self.this_char == -1:
                 break
-        pass
 
 
 class RtfConverter(Converter):
@@ -197,8 +191,6 @@ class RtfConverter(Converter):
         r"{\s1\li720\ri720\qj\sb60\sa60 1stWord+ Indented;}}"
         # These are the only two formatting variants we deal with.
         # Measurement units are "twips", 1/20th of a point.
-        r"\sect"
-        # Begin section (we'll only have one).
         r"\pgnstart1"
         # Here's an amusing little peculiarity: unless we put a
         # document formatting property control word between \sect and
@@ -238,7 +230,7 @@ class RtfConverter(Converter):
         """We use one indentation style to deal with any amount of
         indentation."""
         indents = 0
-        while 1:
+        while True:
             # count the 28s to measure indentation
             c = self.getchar()
             if c != 28:
@@ -257,16 +249,34 @@ class RtfConverter(Converter):
 
     def w_textstyle(self, bold, light, italic, underline,
                     superscript, subscript):
-        changed = 0
+        changed = False
         newstyle = {"b": bold, "i": italic, "ul": underline,
                     "sub": subscript, "super": superscript}
+        styles_to_deactivate = []
+        styles_to_activate = []
         for style in list(newstyle.keys()):
             if newstyle[style] != self.stylestate[style]:
-                changed = 1
-                self.outfile.write("\\" + style)
-                if newstyle[style] == 0:
-                    self.outfile.write("0")
+                changed = True
+                if newstyle[style]:
+                    styles_to_activate.append(style)
+                else:
+                    styles_to_deactivate.append(style)
         if changed:
+            for style in styles_to_deactivate:
+                if style in ["sub", "super"]:
+                    # RTF doesn't (reliably) support switching off
+                    # superscript and subscript separately, whereas the 1WP
+                    # format treats them as separate flags. This approach
+                    # should work unless the document uses superscript and
+                    # subscript simultaneously, which seems very unlikely to
+                    # occur in practice -- I don't even know if the 1stWord+
+                    # application allowed it.
+                    self.outfile.write("\\nosupersub")
+                else:
+                    self.outfile.write("\\" + style + "0")
+            for style in styles_to_activate:
+                self.outfile.write("\\" + style)
+
             self.outfile.write(" ")
             self.check_new_par()
             self.stylestate = newstyle
