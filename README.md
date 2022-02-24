@@ -23,7 +23,7 @@ Usage
 Notes
 -----
 
-1wp2rtf is written in Python 2 and has no dependencies apart from the
+1wp2rtf is written in Python 3 and has no dependencies apart from the
 standard libraries.
 
 [This message](http://www.chiark.greenend.org.uk/~theom/riscos/docs/fancytextformat.txt)
