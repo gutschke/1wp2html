@@ -1,0 +1,131 @@
+^_9 introduces a new ruler with tab positions and text density information.
+In particular, it marks how wide the document is. The very first ruler in
+the document also sets the parameters for the header/footer of each page (if
+present).
+
+^_R introduces a special ruler that applies to all footnotes.
+
+Leading spaces in the ruler set the left margin. The actual text width is
+marked between [ and ]. A period or colon signals a normal position, and a
+^G (7) or # marks a tab stop. The latter are decimal tabs for aligning decimal
+points.
+
+Tabs are expanded upon entry and don't change when the ruler is manipulated
+later unless the user explicitly requests a reformat. If normal positions are
+flagged with a colon, then pressing TAB will insert periods instead of
+(variable) spaces.
+
+After the closing ], there are flags. The first flag signals the character
+pitch; it can be set when creating a new ruler:
+
+0: pica, 65 characters, 6.5"
+1: elite, 78 characters, 6.5"
+2: condensed, 112 characters, 6.5"
+3: expanded, 39 characters, 6.5"
+
+The next flag is 1, if the right margin is justified or 0 if it is ragged.
+
+The third flag sets the line spacing. 1 for normal spacing and 2 for double-
+spaced text; all the way up to 9. When entering the text, blank lines are
+inserted as necessary.
+
+The fourth and final flag determines whether proportional spacing should be
+used.
+
+The default ruler is 65 characters wide, starting at the first printable
+position. Tab stops are each 5 positions, and character pitch is pica.
+
+An actual space character ' ' is a non-breaking space. This is in contrast
+to variable-width space characters ^^ (30) that are followed by
+padding ^\ (28). A trailing ^^ (30) denotes a soft line break inside
+of a paragraph. Furthermore, there are indent ^] (29) characters that
+correspond to tab stops.
+
+^_1 introduces a header format, ^_2 introduces a footer format. Both
+commands take parameters for "left", "center", "right" and "flags".
+Flags are "1" if header and footer shows up on the first page, and "0"
+otherwise. Each of these fields are separated from each other by
+a single ^_.  A # marks the current page number in any of the fields.
+
+^_0 sets global flags:
+  06601030305800
+  066030003040000132006000006008000
+^_0PPTTHHFFBB???L
+P page length in lines
+T TOF number of lines
+H head margin
+F foot margin
+B BOF number of lines
+L set to 1 for 1.5 line spacing
+
+TOF and BOF are top/bottom of form. They allow for setting the blank
+margin at the top or bottom of the page. The head and foot margin give
+the amount of space between header/footer and body of the text
+*including* the header/footer itself. Setting this value to zero skips
+the header/footer entirely.
+
+^_F sets a couple of different global flags:
+^_F?AB???S??N
+A lines above footnote
+B lines below footnote
+S seperation line length
+N start numbering footnotes from
+
+Each page has a block with the footnotes that appear on this page.
+It is stored in increasing numeric order of footnotes without any
+gaps in the numbering. At the end of this block, there is a single
+line with ^_E
+
+Pages end either when the total number of lines has been reached or
+when encountering a ^L character marking a hard page break. Furthermore,
+conditional page breaks can protect lines from being broken up. This
+is marked by ^K (11) followed by the number of protected lines as an ASCII
+value offset by 0x10. ^K\x11 protects a single line. This is used
+for footnotes, so that they don't get split across pages.
+
+Each footnote starts with
+^_NFFF:CCCCRRRRLLLL
+F numeric identifier of the footnote
+C zero-indexed column number where footnote originated
+R zero-indexed line number where footnote originated
+L number of lines in the footnote
+
+This header is immediately followed by as many lines as indicated,
+making up an embedded document.
+
+In all cases, footnotes are numbered starting at one, even if the
+visual representation uses a different starting offset.
+
+Any line that has footnotes starts with a conditional one-line page
+break ^K^Q (11, 17). The actual location of the footnote is printed
+with the superscript attribute and is enclosed between two ^X (24). It
+has two comma separated fields. The two digit number of lines in the
+footnote, the comma, and the numeric footnote index.
+
+^_8 is used to embed graphics.
+
+Text styles/attributes are set by escape sequences.
+\x1B\x80 normal
+\x1B\x81 bold
+\x1B\x82 light
+\x1B\x84 italic
+\x1B\x88 underline
+\x1B\x90 superscript
+\x1B\xA0 subscript
+These bit values can be combined, but the combination of bold and
+light is invalid, as is super- combined with subscript.
+
+SP	!	"	#	$	%	&	'	(	)	*	+	,	-	.	/
+0	1	2	3	4	5	6	7	8	9	:	;	<	=	>	?
+@	A	B	C	D	E	F	G	H	I	J	K	L	M	N	O
+P	Q	R	S	T	U	V	W	X	Y	Z	[	\	]	^	_
+`	a	b	c	d	e	f	g	h	i	j	k	l	m	n	o
+p	q	r	s	t	u	v	w	x	y	z	{	|	}	~	⌂
+Ç	ü	é	â	ä	à	å	ç	ê	ë	è	ï	î	ì	Ä	Å
+É	æ	Æ	ô	ö	ò	û	ù	ÿ	Ö	Ü	¢	£	¥	ß	ƒ
+á	í	ó	ú	ñ	Ñ	ª	º	¿	⌐	¬	½	¼	¡	«	»
+ã	õ	Ø	ø	œ	Œ	À	Ã	Õ	¨	´	†	¶	©	®	™
+ĳ	Ĳ	א	ב	ג	ד	ה	ו	ז	ח	ט	י	כ	ל	מ	נ
+ס	ע	פ	צ	ק	ר	ש	ת	ן	ך	ם	ף	ץ	§	∧	∞
+α	β	Γ	π	Σ	σ	µ	τ	Φ	Θ	Ω	δ	∮	ϕ	€	∩
+≡	±	≥	≤	⌠	⌡	÷	≈	°	•	·	√	ⁿ	²	³	¯
