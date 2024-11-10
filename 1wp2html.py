@@ -48,6 +48,7 @@ class Converter:
         self.note_below = 0
         self.note_sep_len = 0
         self.note_num_offset = 1
+        self.pitches_used = set()
 
         self.dispatch_table = {
             -1: self.finish,
@@ -100,6 +101,8 @@ class Converter:
             '\u222e', '\u03d5', '\u20ac', '\u2229', '\u2261', '\xb1', '\u2265',
             '\u2264', '\u2320', '\u2321', '\xf7', '\u2248', '\xb0', '\u2022',
             '\xb7', '\u221a', '\u207f', '\xb2', '\xb3', '\xaf' ]
+
+        self.pitch2name = { 78: 'elite', 112: 'condensed', 39: 'expanded' }
 
     def w_char(self, char): pass
     def w_textstyle(self, bold, light, italic, underline,
@@ -292,6 +295,7 @@ class Converter:
                 r['pitch'] = (65, 78, 112, 39)[ord(ruler[r['width']])-48]
             except:
                 r['pitch'] = 65
+            self.pitches_used.add(r['pitch'])
             try:
                 r['justified'] = ruler[r['width'] + 1] != '0'
             except:
@@ -555,39 +559,56 @@ class DOMConverter(Converter):
           f'  margin-block: 0 0;\n'
           f'  text-align: justify;\n'
           f'  text-wrap: pretty;\n'
-          f'}}\n'
-          f'.elite p *, .condensed p *, .expanded p * {{\n'
-          f'  vertical-align: top;\n'
-          f'}}\n'
-          f'.elite sub, .condensed sub, .expanded sub,\n'
-          f'.elite sup, .condensed sup, .expanded sup {{\n'
-          f'  vertical-align: revert;\n'
-          f'}}\n'
-          f'.pica p span {{\n' # 65 chars per line
-          f'}}\n'
-          f'.elite p span {{\n' # 78 chars per line
-          f'  display: inline-block;\n'
-          f'  font-size: calc(65/78*100%);\n'
-          f'  transform: scaleY(calc(78/65));\n'
-          f'  transform-origin: 0 0;\n'
-          f'}}\n'
-          f'.condensed p span {{\n' # 112 chars per line
-          f'  display: inline-block;\n'
-          f'  font-size: calc(65/112*100%);\n'
-          f'  transform: scaleY(calc(112/65));\n'
-          f'  transform-origin: 0 0;\n'
-          f'}}\n'
-          f'.expanded p span {{\n' # 39 chars per line
-          f'  display: inline-block;\n'
-          f'  font-size: calc(65/39*100%);\n'
-          f'  transform: scaleY(calc(39/65));\n'
-          f'  transform-origin: 0 0;\n'
-          f'}}\n'
+          f'}}\n')
+        if len(self.pitches_used) > int(65 in self.pitches_used):
+            comma = ''
+            for k, v in self.pitch2name.items():
+                if k in self.pitches_used:
+                    self.outfile.write(f'{comma}.{v} p *')
+                    comma = ', '
+            self.outfile.write(f' {{\n'
+                               f'  vertical-align: top;\n'
+                               f'}}\n');
+        if len(self.pitches_used) > int(65 in self.pitches_used):
+            comma = ''
+            for k, v in self.pitch2name.items():
+                if k in self.pitches_used:
+                    self.outfile.write(f'{comma}.{v} sub, .{v} sup')
+                    comma = ', '
+            self.outfile.write(f' {{\n'
+                               f'  vertical-align: revert;\n'
+                               f'}}\n')
+        if 78 in self.pitches_used:
+            self.outfile.write(
+              f'.elite p span {{\n' # 78 chars per line
+              f'  display: inline-block;\n'
+              f'  font-size: calc(65/78*100%);\n'
+              f'  transform: scaleY(calc(78/65));\n'
+              f'  transform-origin: 0 0;\n'
+              f'}}\n')
+        if 112 in self.pitches_used:
+            self.outfile.write(
+              f'.condensed p span {{\n' # 112 chars per line
+              f'  display: inline-block;\n'
+              f'  font-size: calc(65/112*100%);\n'
+              f'  transform: scaleY(calc(112/65));\n'
+              f'  transform-origin: 0 0;\n'
+              f'}}\n')
+        if 39 in self.pitches_used:
+            self.outfile.write(
+              f'.expanded p span {{\n' # 39 chars per line
+              f'  display: inline-block;\n'
+              f'  font-size: calc(65/39*100%);\n'
+              f'  transform: scaleY(calc(39/65));\n'
+              f'  transform-origin: 0 0;\n'
+              f'}}\n')
+        self.outfile.write(
           f'</style>\n'
           f'<title>{self.name}</title>\n'
           f'</head>\n'
           f'<body>\n')
         active_div = False
+        span = False
         cur_width = -1
         cur_pitch = -1
         for para in self.dom:
@@ -597,7 +618,8 @@ class DOMConverter(Converter):
                 else:
                     style = '' if self.ruler['justified'] \
                             else ' style="text-align: left"'
-                    self.outfile.write(f'<p{style}><span>')
+                    self.outfile.write(f'<p{style}>')
+                    if span: self.outfile.write('<span>')
                     tags = ''
                     closing = ''
                     for line in para:
@@ -633,41 +655,43 @@ class DOMConverter(Converter):
                                 closing = '</sub>' + closing
                     if not tags and closing:
                         self.outfile.write(closing)
-                    self.outfile.write('</span></p>\n')
+                    if span: self.outfile.write('</span>')
+                    self.outfile.write('</p>\n')
             else:
                 if para['width'] != cur_width or para['pitch'] != cur_pitch:
                     cur_width = para['width']
                     width = cur_width*65.0/para['pitch']
                     cur_pitch = para['pitch']
                     try:
-                        pitch = { 65: 'pica', 78: 'elite', 112: 'condensed',
-                                  39: 'expanded'
-                                }[cur_pitch]
+                        pitch = self.pitch2name[cur_pitch]
                         cls = f' class="{pitch}"'
+                        span = True
                     except:
                         cls = ''
+                        span = False
                     if active_div:
                         self.outfile.write('</div>\n')
                     active_div = True
                     self.outfile.write(f'<div style="width: {width}rch;"{cls}>')
         if active_div:
             self.outfile.write('</div>\n')
-        self.outfile.write(
-          r'<script>''\n'
-          r'  for (var sp of document.getElementsByTagName("span")) {''\n'
-          r'    sp.style.marginBottom = ''\n'
-          r'      (Number(getComputedStyle(sp).transform.split(",")[3])-1)*''\n'
-          r'      sp.clientHeight + "px";''\n'
-          r'  }''\n'
-          r'</script>''\n')
+        if len(self.pitches_used) > int(65 in self.pitches_used):
+            self.outfile.write(
+            r'<script>''\n'
+            r'  for (var sp of document.getElementsByTagName("span")) {''\n'
+            r'    sp.style.marginBottom = ''\n'
+            r'      (Number(getComputedStyle(sp).transform.split(",")[3])-1)*''\n'
+            r'      sp.clientHeight + "px";''\n'
+            r'  }''\n'
+            r'</script>''\n')
         self.outfile.write(f'</body>\n'
                            f'</html>\n')
 
 def convert(input_filename, output_filename):
     with open(input_filename, 'rb') as infile, \
          open(output_filename, 'w') as outfile:
-        name = (input_filename if not input_filename.startswith('/dev') \
-                else output_filename).split('/')[-1]
+        name = (output_filename if not output_filename.startswith('/dev') \
+                else input_filename).split('/')[-1]
         converter = DOMConverter(name, infile, outfile)
         converter.convert()
 
