@@ -24,6 +24,7 @@ class Converter:
         self.name = name
         self.infile = infile
         self.outfile = outfile
+        self.pos = 0
         self.this_char = -1
         self.prev_char = -1
         self.follow_char = b''
@@ -110,8 +111,8 @@ class Converter:
     def w_gfx(self, x, y, gfx): pass
     def w_ruler(self, ruler, is_footnote): pass
     def w_backspace(self): pass
-    def w_tab(self): self.outfile.write('\t')
-    def w_linefeed(self): self.outfile.write('\n')
+    def w_tab(self): self.write('\t')
+    def w_linefeed(self): self.write('\n')
     def w_pagebreak_cond(self, lines): pass
     def w_pagebreak_uncond(self): pass
     def w_footnoteref(self, lines, n): pass
@@ -124,6 +125,27 @@ class Converter:
     def w_delete(self): pass
     def w_begin(self): pass
     def w_finish(self): pass
+
+    def write(self, s):
+        while s:
+            nl = s.find('\n')
+            spc = s.find(' ')
+            if spc >= 0 and (nl < 0 or spc < nl):
+                self.pos += spc + 1
+                if self.pos >= 72:
+                    self.outfile.write(f'{s[:spc]}\n')
+                    self.pos = 0
+                else:
+                    self.outfile.write(s[:spc+1])
+                s = s[spc+1:]
+            elif nl >= 0:
+                self.outfile.write(s[:nl+1])
+                self.pos = 0
+                s = s[nl+1:]
+            else:
+                self.outfile.write(s)
+                self.pos += len(s)
+                return
 
     def begin(self):
         """First printable character is about to be read. The header has
@@ -547,7 +569,7 @@ class DOMConverter(Converter):
         self.dom = dom
 
     def domToHTML(self):
-        self.outfile.write(
+        self.write(
           f'<!DOCTYPE html>\n'
           f'<html>\n'
           f'<head>\n'
@@ -564,22 +586,22 @@ class DOMConverter(Converter):
             comma = ''
             for k, v in self.pitch2name.items():
                 if k in self.pitches_used:
-                    self.outfile.write(f'{comma}.{v} p *')
+                    self.write(f'{comma}.{v} p *')
                     comma = ', '
-            self.outfile.write(f' {{\n'
-                               f'  vertical-align: top;\n'
-                               f'}}\n');
+            self.write(f' {{\n'
+                       f'  vertical-align: top;\n'
+                       f'}}\n');
         if len(self.pitches_used) > int(65 in self.pitches_used):
             comma = ''
             for k, v in self.pitch2name.items():
                 if k in self.pitches_used:
-                    self.outfile.write(f'{comma}.{v} sub, .{v} sup')
+                    self.write(f'{comma}.{v} sub, .{v} sup')
                     comma = ', '
-            self.outfile.write(f' {{\n'
-                               f'  vertical-align: revert;\n'
-                               f'}}\n')
+            self.write(f' {{\n'
+                       f'  vertical-align: revert;\n'
+                       f'}}\n')
         if 78 in self.pitches_used:
-            self.outfile.write(
+            self.write(
               f'.elite p span {{\n' # 78 chars per line
               f'  display: inline-block;\n'
               f'  font-size: calc(65/78*100%);\n'
@@ -587,7 +609,7 @@ class DOMConverter(Converter):
               f'  transform-origin: 0 0;\n'
               f'}}\n')
         if 112 in self.pitches_used:
-            self.outfile.write(
+            self.write(
               f'.condensed p span {{\n' # 112 chars per line
               f'  display: inline-block;\n'
               f'  font-size: calc(65/112*100%);\n'
@@ -595,14 +617,14 @@ class DOMConverter(Converter):
               f'  transform-origin: 0 0;\n'
               f'}}\n')
         if 39 in self.pitches_used:
-            self.outfile.write(
+            self.write(
               f'.expanded p span {{\n' # 39 chars per line
               f'  display: inline-block;\n'
               f'  font-size: calc(65/39*100%);\n'
               f'  transform: scaleY(calc(39/65));\n'
               f'  transform-origin: 0 0;\n'
               f'}}\n')
-        self.outfile.write(
+        self.write(
           f'</style>\n'
           f'<title>{self.name}</title>\n'
           f'</head>\n'
@@ -614,25 +636,25 @@ class DOMConverter(Converter):
         for para in self.dom:
             if isinstance(para, list):
                 if not para:
-                    self.outfile.write('<br/>\n')
+                    self.write('<br/>\n')
                 else:
                     style = '' if self.ruler['justified'] \
                             else ' style="text-align: left"'
-                    self.outfile.write(f'<p{style}>')
-                    if span: self.outfile.write('<span>')
+                    self.write(f'<p{style}>')
+                    if span: self.write('<span>')
                     tags = ''
                     closing = ''
                     for line in para:
                         if isinstance(line, str):
                             if tags:
-                                self.outfile.write(tags)
+                                self.write(tags)
                                 tags = ''
-                            self.outfile.write(
+                            self.write(
                                 re.sub(r'([\u05d0-\u05ea])', r'<span>\1</span>',
                                        html.escape(line)))
                         else:
                             if not tags and closing:
-                                self.outfile.write(closing)
+                                self.write(closing)
                                 closing = ''
                             tags = ''
                             if 'bold' in line:
@@ -654,9 +676,9 @@ class DOMConverter(Converter):
                                 tags += '<sub>'
                                 closing = '</sub>' + closing
                     if not tags and closing:
-                        self.outfile.write(closing)
-                    if span: self.outfile.write('</span>')
-                    self.outfile.write('</p>\n')
+                        self.write(closing)
+                    if span: self.write('</span>')
+                    self.write('</p>\n')
             else:
                 if para['width'] != cur_width or para['pitch'] != cur_pitch:
                     cur_width = para['width']
@@ -670,13 +692,13 @@ class DOMConverter(Converter):
                         cls = ''
                         span = False
                     if active_div:
-                        self.outfile.write('</div>\n')
+                        self.write('</div>\n')
                     active_div = True
-                    self.outfile.write(f'<div style="width: {width}rch;"{cls}>')
+                    self.write(f'<div style="width: {width}rch;"{cls}>')
         if active_div:
-            self.outfile.write('</div>\n')
+            self.write('</div>\n')
         if len(self.pitches_used) > int(65 in self.pitches_used):
-            self.outfile.write(
+            self.write(
             r'<script>''\n'
             r'  for (var sp of document.getElementsByTagName("span")) {''\n'
             r'    sp.style.marginBottom = ''\n'
@@ -684,8 +706,8 @@ class DOMConverter(Converter):
             r'      sp.clientHeight + "px";''\n'
             r'  }''\n'
             r'</script>''\n')
-        self.outfile.write(f'</body>\n'
-                           f'</html>\n')
+        self.write(f'</body>\n'
+                   f'</html>\n')
 
 def convert(input_filename, output_filename):
     with open(input_filename, 'rb') as infile, \
